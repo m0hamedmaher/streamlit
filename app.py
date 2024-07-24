@@ -1,34 +1,87 @@
-# import streamlit as st
-# from utils import PrepProcesor, columns 
+import streamlit as st
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.impute import SimpleImputer
+import numpy as np
+import pandas as pd
+import joblib
 
-# import numpy as np
-# import pandas as pd
-# import joblib
+# تحميل البيانات
+data = pd.read_csv('/content/sampled_dataa.csv')
 
-# model = joblib.load('xgbpipe.joblib')
-# st.title('Did they survive? :ship:')
-# # PassengerId,Pclass,Name,Sex,Age,SibSp,Parch,Ticket,Fare,Cabin,Embarked
-# passengerid = st.text_input("Input Passenger ID", '123456') 
-# pclass = st.selectbox("Choose class", [1,2,3])
-# name  = st.text_input("Input Passenger Name", 'John Smith')
-# sex = st.select_slider("Choose sex", ['male','female'])
-# age = st.slider("Choose age",0,100)
-# sibsp = st.slider("Choose siblings",0,10)
-# parch = st.slider("Choose parch",0,2)
-# ticket = st.text_input("Input Ticket Number", "12345") 
-# fare = st.number_input("Input Fare Price", 0,1000)
-# cabin = st.text_input("Input Cabin", "C52") 
-# embarked = st.select_slider("Did they Embark?", ['S','C','Q'])
+# تعريف معالج البيانات
+class PrepProcessor(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        # تجهيز المعوضات للقيم الناقصة
+        self.imputers = {
+            'oldbalanceOrg': SimpleImputer(strategy='mean'),
+            'newbalanceOrig': SimpleImputer(strategy='mean'),
+            'oldbalanceDest': SimpleImputer(strategy='mean'),
+            'newbalanceDest': SimpleImputer(strategy='mean'),
+            'isFlaggedFraud': SimpleImputer(strategy='mean')
+        }
+        
+        for column, imputer in self.imputers.items():
+            imputer.fit(X[[column]])
+        
+        # تجهيز المحولات للأعمدة الفئوية
+        self.label_encoders = {
+            'type': LabelEncoder(),
+            'nameOrig': LabelEncoder(),
+            'nameDest': LabelEncoder()
+        }
+        
+        for column, le in self.label_encoders.items():
+            le.fit(X[column])
+        
+        return self
 
-# def predict(): 
-#     row = np.array([passengerid,pclass,name,sex,age,sibsp,parch,ticket,fare,cabin,embarked]) 
-#     X = pd.DataFrame([row], columns = columns)
-#     prediction = model.predict(X)
-#     if prediction[0] == 1: 
-#         st.success('Passenger Survived :thumbsup:')
-#     else: 
-#         st.error('Passenger did not Survive :thumbsdown:') 
+    def transform(self, X, y=None):
+        # تعويض القيم الناقصة
+        for column, imputer in self.imputers.items():
+            X[column] = imputer.transform(X[[column]])
+        
+        # تحويل الأعمدة الفئوية إلى أرقام
+        for column, le in self.label_encoders.items():
+            X[column] = le.transform(X[column])
+        
+        return X
 
-# trigger = st.button('Predict', on_click=predict)
+# تحديد أعمدة البيانات
+columns = ['step', 'type', 'amount', 'nameOrig', 'oldbalanceOrg', 'newbalanceOrig', 
+           'nameDest', 'oldbalanceDest', 'newbalanceDest', 'isFlaggedFraud']
+model = joblib.load('model.joblib')
 
-print('moha')
+st.title("تطبيق كشف الاحتيال في المدفوعات")
+
+# إدخال بيانات المستخدم
+step = st.number_input('الخطوة', min_value=0)
+typee = st.selectbox('النوع', data['type'].unique())
+amount = st.number_input('المبلغ', min_value=0.0)
+nameOrig = st.text_input('اسم المرسل', 'C123456')
+oldbalanceOrg = st.number_input('الرصيد القديم للمرسل', min_value=0.0)
+newbalanceOrig = st.number_input('الرصيد الجديد للمرسل', min_value=0.0)
+nameDest = st.text_input('اسم المستلم', 'C654321')
+oldbalanceDest = st.number_input('الرصيد القديم للمستلم', min_value=0.0)
+newbalanceDest = st.number_input('الرصيد الجديد للمستلم', min_value=0.0)
+isFlaggedFraud = st.number_input('Is Flagged Fraud', min_value=0.0)
+
+def predict(): 
+    row = np.array([step, typee, amount, nameOrig, oldbalanceOrg, newbalanceOrig, nameDest, oldbalanceDest, newbalanceDest, isFlaggedFraud]) 
+    X = pd.DataFrame([row], columns = columns)
+    
+    # تحضير البيانات باستخدام المعالج
+    processor = PrepProcessor()
+    processor.fit(data)
+    X_transformed = processor.transform(X)
+    
+    # التنبؤ باستخدام النموذج
+    prediction = model.predict(X_transformed)
+    
+    if prediction[0] == 1: 
+        st.success('تم اكتشاف معاملة احتيالية :thumbsup:')
+    else: 
+        st.error('المعاملة ليست احتيالية :thumbsdown:') 
+
+trigger = st.button('تنبؤ', on_click=predict)
