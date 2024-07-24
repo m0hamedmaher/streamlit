@@ -8,7 +8,7 @@ import pandas as pd
 import joblib
 
 # تحميل البيانات
-data = pd.read_csv('/content/sampled_dataa.csv')
+# data = pd.read_csv('/content/sampled_dataa.csv')
 
 # تعريف معالج البيانات
 class PrepProcessor(BaseEstimator, TransformerMixin):
@@ -27,7 +27,6 @@ class PrepProcessor(BaseEstimator, TransformerMixin):
         
         # تجهيز المحولات للأعمدة الفئوية
         self.label_encoders = {
-            'type': LabelEncoder(),
             'nameOrig': LabelEncoder(),
             'nameDest': LabelEncoder()
         }
@@ -57,7 +56,7 @@ st.title("تطبيق كشف الاحتيال في المدفوعات")
 
 # إدخال بيانات المستخدم
 step = st.number_input('الخطوة', min_value=0)
-typee = st.selectbox('النوع', data['type'].unique())
+# typee = st.selectbox('النوع', data['type'].unique())
 amount = st.number_input('المبلغ', min_value=0.0)
 nameOrig = st.text_input('اسم المرسل', 'C123456')
 oldbalanceOrg = st.number_input('الرصيد القديم للمرسل', min_value=0.0)
@@ -68,7 +67,7 @@ newbalanceDest = st.number_input('الرصيد الجديد للمستلم', min
 isFlaggedFraud = st.number_input('Is Flagged Fraud', min_value=0.0)
 
 def predict(): 
-    row = np.array([step, typee, amount, nameOrig, oldbalanceOrg, newbalanceOrig, nameDest, oldbalanceDest, newbalanceDest, isFlaggedFraud]) 
+    row = np.array([step,amount, nameOrig, oldbalanceOrg, newbalanceOrig, nameDest, oldbalanceDest, newbalanceDest, isFlaggedFraud]) 
     X = pd.DataFrame([row], columns = columns)
     
     # تحضير البيانات باستخدام المعالج
